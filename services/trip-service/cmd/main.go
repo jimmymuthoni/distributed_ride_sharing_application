@@ -1,34 +1,34 @@
 package main
 
 import (
-	"context"
 	"log"
-	"time"
-
-	"github.com/jimmymuthoni/distributed_ride_sharing_application/services/trip-service/internal/domain"
+	"net/http"
 	repository "github.com/jimmymuthoni/distributed_ride_sharing_application/services/trip-service/internal/infrastructure"
 	"github.com/jimmymuthoni/distributed_ride_sharing_application/services/trip-service/internal/service"
+	h "github.com/jimmymuthoni/distributed_ride_sharing_application/services/trip-service/internal/infrastructure/http"
 )
 
-func main(){
+ 
 
-	ctx := context.Background()
+func main(){
 	inmem := repository.NewInmemRepository()
 	svc := service.NewService(inmem)
 
-	fare := &domain.RideFareModel{
-		UserID: "42",
-	}
-	t, err := svc.CreateTrip(ctx, fare)
-	if err != nil {
-		log.Println(err)
-	}
-    log.Println(t)
+	mux := http.NewServeMux()
+	httphandler := h.HttpHandler{Service: svc}
 
-	//keep the program runnning for now
-	for {
-		time.Sleep(time.Second)
+	mux.HandleFunc("POST /preview", httphandler.HandleTripPreview)
+
+	server := &http.Server{
+		Addr: "8083",
+		Handler: mux,
 	}
+
+	if err := server.ListenAndServe(); err != nil {
+		log.Printf("HTTP server error:%v", err)
+	}
+
 
 }
+
 
