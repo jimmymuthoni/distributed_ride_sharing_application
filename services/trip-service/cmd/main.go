@@ -11,6 +11,7 @@ import (
  
 
 func main(){
+	log.Println("Starting Trip service server....")
 	inmem := repository.NewInmemRepository()
 	svc := service.NewService(inmem)
 
@@ -20,7 +21,7 @@ func main(){
 	mux.HandleFunc("POST /preview", httphandler.HandleTripPreview)
 
 	server := &http.Server{
-		Addr: "8083",
+		Addr: ":8083",
 		Handler: mux,
 	}
 
