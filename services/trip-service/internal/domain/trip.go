@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"github.com/jimmymuthoni/distributed_ride_sharing_application/shared/types"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -22,4 +23,6 @@ type TripRepository interface {
 
 type TripService interface {
 	CreateTrip(ctx context.Context, trip *RideFareModel) (*TripModel, error)
+	GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*types.OsrmApiResponse, error)
 }
+
