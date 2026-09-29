@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+    "log"
 
 	"github.com/jimmymuthoni/distributed_ride_sharing_application/services/trip-service/internal/domain"
-	"github.com/jimmymuthoni/distributed_ride_sharing_application/shared/types"
+	tripTypes "github.com/jimmymuthoni/distributed_ride_sharing_application/shared/types"
+    "github.com/jimmymuthoni/distributed_ride_sharing_application/shared/types"
+    "github.com/jimmymuthoni/distributed_ride_sharing_application/shared/env"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -35,44 +38,62 @@ func (s *service) CreateTrip(ctx context.Context, fare *domain.RideFareModel)(*d
 
 }
 
-func (s *service) GetRoute(ctx context.Context,pickup, destination *types.Coordinate,) (*types.OsrmApiResponse, error) {
+func (s *service) GetRoute(ctx context.Context, pickup, destination *types.Coordinate, useOSRMApi bool) (*tripTypes.OsrmApiResponse, error) {
+	if !useOSRMApi {
+		// Return a simple mock response in case we don't want to rely on an external API
+		return &tripTypes.OsrmApiResponse{
+			Routes: []struct {
+				Distance float64 `json:"distance"`
+				Duration float64 `json:"duration"`
+				Geometry struct {
+					Coordinates [][]float64 `json:"coordinates"`
+				} `json:"geometry"`
+			}{
+				{
+					Distance: 5.0, // 5km
+					Duration: 600, // 10 minutes
+					Geometry: struct {
+						Coordinates [][]float64 `json:"coordinates"`
+					}{
+						Coordinates: [][]float64{
+							{pickup.Latitude, pickup.Longitude},
+							{destination.Latitude, destination.Longitude},
+						},
+					},
+				},
+			},
+		}, nil
+	}
 
-    url := fmt.Sprintf(
-        "http://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson",
-        pickup.Longitude,
-        pickup.Latitude,
-        destination.Longitude,
-        destination.Latitude,
-    )
+	// External API - OSRMAPI
+	baseURL := env.GetString("OSRM_API", "http://router.project-osrm.org")
 
-    resp, err := http.Get(url)
-    if err != nil {
-        return nil, fmt.Errorf("failed to fetch route from OSRM API: %v", err)
-    }
-    defer resp.Body.Close()
+	url := fmt.Sprintf(
+		"%s/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson",
+		baseURL,
+		pickup.Longitude, pickup.Latitude,
+		destination.Longitude, destination.Latitude,
+	)
 
-    body, err := io.ReadAll(resp.Body)
-    if err != nil {
-        return nil, fmt.Errorf("failed to read the response: %v", err)
-    }
+	log.Printf("Started Fetching from OSRM API: URL: %s", url)
 
-    if resp.StatusCode != http.StatusOK {
-        return nil, fmt.Errorf(
-            "OSRM returned %s: %s",
-            resp.Status,
-            string(body),
-        )
-    }
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch route from OSRM API: %v", err)
+	}
+	defer resp.Body.Close()
 
-    var routeResp types.OsrmApiResponse
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the response: %v", err)
+	}
 
-    if err := json.Unmarshal(body, &routeResp); err != nil {
-        return nil, fmt.Errorf(
-            "failed to parse OSRM response: %v; body: %s",
-            err,
-            string(body),
-        )
-    }
+	log.Printf("Got response from OSRM API %s", string(body))
 
-    return &routeResp, nil
+	var routeResp tripTypes.OsrmApiResponse
+	if err := json.Unmarshal(body, &routeResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	return &routeResp, nil
 }
