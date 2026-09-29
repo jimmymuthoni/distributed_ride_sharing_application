@@ -35,29 +35,44 @@ func (s *service) CreateTrip(ctx context.Context, fare *domain.RideFareModel)(*d
 
 }
 
-func GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*types.OsrmApiResponse, error) {
+func (s *service) GetRoute(ctx context.Context,pickup, destination *types.Coordinate,) (*types.OsrmApiResponse, error) {
 
-	url := fmt.Sprintf(
-		"http://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson", 
-		pickup.Longitude, pickup.Latitude, 
-		destination.Longitude, destination.Latitude,
-	)
+    url := fmt.Sprintf(
+        "http://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson",
+        pickup.Longitude,
+        pickup.Latitude,
+        destination.Longitude,
+        destination.Latitude,
+    )
 
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("faled to fetch route from OSRM API: %v", err)
-	}
-	defer resp.Body.Close()
+    resp, err := http.Get(url)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch route from OSRM API: %v", err)
+    }
+    defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the response: %v", err)
-	}
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, fmt.Errorf("failed to read the response: %v", err)
+    }
 
-	var routeResp types.OsrmApiResponse
-	if err := json.Unmarshal(body, &routeResp); err != nil{
-		return nil, fmt.Errorf("failed to parse the response: %v", err)
-	}
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf(
+            "OSRM returned %s: %s",
+            resp.Status,
+            string(body),
+        )
+    }
 
-	return &routeResp, nil
+    var routeResp types.OsrmApiResponse
+
+    if err := json.Unmarshal(body, &routeResp); err != nil {
+        return nil, fmt.Errorf(
+            "failed to parse OSRM response: %v; body: %s",
+            err,
+            string(body),
+        )
+    }
+
+    return &routeResp, nil
 }
