@@ -33,3 +33,11 @@ func NewTripServiceClient() (*tripServiceClient, error){
 
 }
 
+//closing connection
+func (c *tripServiceClient) Close() {
+	if c.conn != nil {
+		if err := c.conn.Close(); err != nil {
+			return
+		}
+	}
+}
