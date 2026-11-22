@@ -7,11 +7,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jimmymuthoni/distributed_ride_sharing_application/services/api-gateway/grpc_clients"
 	"github.com/jimmymuthoni/distributed_ride_sharing_application/shared/contracts"
+	"google.golang.org/grpc"
 )
 
 func handleTripPreview(w http.ResponseWriter, r *http.Request){
-
 	time.Sleep(time.Second * 9)
 	var reqBody previewTripRequest
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
@@ -28,6 +29,12 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request){
 
 	jsonBody, _ := json.Marshal(reqBody)
 	reader := bytes.NewReader(jsonBody)
+
+	tripService, err := grpc_clients.NewTripServiceClient()
+	if err != nil {
+		log.Fatal()
+	}
+	defer tripService.Close()
 	
 	//call trip service
 	resp, err := http.Post("http://trip-service:8083/preview","application/json", reader)
@@ -41,8 +48,7 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request){
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		http.Error(w,"failed to parse JSON data on trip service", http.StatusBadRequest)
 		return
-	}
-	 
+	} 
 
 	response := contracts.APIResponse{Data: respBody}
 	
